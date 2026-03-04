@@ -1,5 +1,5 @@
 import Booking from "../models/Booking.js";
-import Show from "../models/show.js"
+import Show from "../models/Show.js"
 import razorpay from "razorpay"
 
 
