@@ -6,7 +6,7 @@ import razorpay from "razorpay"
 //Function to check availability of selected seats for a movie
 const checkSeatsAvailability = async (showId, selectedSeats) => {
     try {
-        await Show.findById(showId)
+        const showData = await Show.findById(showId)
         if(!showData) return false;
 
         const occupiedSeats = showData.occupiedSeats;
