@@ -1,6 +1,7 @@
 import axios from 'axios';
 import Movie from '../models/Movie.js';
 import Show from '../models/Show.js';
+import { inngest } from '../inngest/index.js';
 
 // API to get now playing movies from TMDB API
 export const getNowPlayingMovies = async (req, res) => {
@@ -53,7 +54,7 @@ export const addShow = async (req, res) => {
                 original_language: movieApiData.original_language,
                 tagline: movieApiData.tagline || "",
                 genres: movieApiData.genres,
-                casts: movieCreditsData.casts,
+                casts: movieCreditsData.cast,
                 vote_average: movieApiData.vote_average,
                 runtime: movieApiData.runtime,
             }
@@ -79,6 +80,12 @@ export const addShow = async (req, res) => {
         if (showToCreate.length > 0) {
             await Show.insertMany(showToCreate);
         }
+
+        // Trigger Inngest evnet
+        await inngest.send({
+            name: "app/show.added",
+            data: {movieTitle: movie.title}
+        })
 
         res.json({ success: true, message: 'Show Added successfully' })
     } catch (error) {
@@ -106,22 +113,39 @@ export const getShows = async (req, res) => {
 export const getShow = async (req, res) => {
     try {
         const { movieId } = req.params;
-        //get all upcoming shows for the movie
-        const shows = await Show.find({ movie: movieId, showDateTime: { $gte: new Date() } })
+
+        const shows = await Show.find({
+            movie: movieId,
+            showDateTime: { $gte: new Date() }
+        });
 
         const movie = await Movie.findById(movieId);
         const dateTime = {};
 
         shows.forEach((show) => {
             const date = show.showDateTime.toISOString().split("T")[0];
+
             if (!dateTime[date]) {
-                dateTime[date] = []
+                dateTime[date] = [];
             }
-            dateTime[date].push({ time: show.showDateTime, showId: show._id })
-            res.json({ success: true, movie, dateTime })
-        })
+
+            dateTime[date].push({
+                time: show.showDateTime,
+                showId: show._id
+            });
+        });
+
+        return res.json({
+            success: true,
+            movie,
+            dateTime
+        });
+
     } catch (error) {
         console.error(error);
-        res.json({ success: false, message: error.message });
+        return res.json({
+            success: false,
+            message: error.message
+        });
     }
 }

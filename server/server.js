@@ -9,12 +9,16 @@ import showRouter from './routes/showRoutes.js';
 import bookingRouter from './routes/bookingRoutes.js';
 import adminRouter from './routes/adminRoutes.js';
 import userRouter from './routes/userRoutes.js';
+import { razorpayWebhooks } from './controllers/razorpayWebhooks.js';
 
 
 const app = express();
 const port = process.env.PORT || 3000;
 
 await connectDB()
+
+// Razorpay Webhooks Route
+app.use('/api/webhooks/razorpay', express.raw({type: 'application/json'}), razorpayWebhooks)
 
 // Middleware
 app.use(express.json())
