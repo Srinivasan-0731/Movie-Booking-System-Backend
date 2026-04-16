@@ -13,24 +13,30 @@ import { razorpayWebhooks } from "./controllers/razorpayWebhooks.js";
 const app = express();
 const port = process.env.PORT || 3000;
 
-
 connectDB()
   .then(() => console.log("MongoDB Connected"))
   .catch((err) => console.log(err));
 
-
-// Razorpay webhook 
+// Razorpay webhook
 app.use(
   "/api/webhooks/razorpay",
-  express.raw({ type: "application/json" }), razorpayWebhooks
+  express.raw({ type: "application/json" }),
+  razorpayWebhooks
 );
-
 
 // middleware
 app.use(express.json());
 
-app.use(cors({origin: "http://localhost:5173", credentials: true,}));
 
+app.use(
+  cors({
+    origin: [
+      "http://localhost:5173",
+      "https://cheery-belekoy-04852d.netlify.app",
+    ],
+    credentials: true,
+  })
+);
 
 app.get("/", (req, res) => res.send("Server is Live!"));
 
@@ -41,16 +47,12 @@ app.use("/api/booking", bookingRouter);
 app.use("/api/admin", adminRouter);
 app.use("/api/user", userRouter);
 
-
-
 app.use((req, res) => {
   res.status(404).json({
     success: false,
     message: "Route not found",
   });
 });
-
-
 
 app.use((err, req, res, next) => {
   console.error(err.stack);
@@ -59,7 +61,6 @@ app.use((err, req, res, next) => {
     message: "Server error",
   });
 });
-
 
 app.listen(port, () => {
   console.log(`Server running http://localhost:${port}`);
