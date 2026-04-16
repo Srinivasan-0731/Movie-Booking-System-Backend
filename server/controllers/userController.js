@@ -1,66 +1,170 @@
-import { clerkClient } from "@clerk/express";
-import Booking from "../models/Booking.js"
+import Booking from "../models/Booking.js";
 import Movie from "../models/Movie.js";
+import User from "../models/User.js";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
+import validator from "validator";
 
 
-// API Controller Function to Get User Bookings
+export const signup = async (req, res) => {
+  try {
+    let { fullName, email, phone, password } = req.body;
+
+    if (!fullName?.trim() || !email?.trim() || !password?.trim()) {
+      return res.status(400).json({ success: false, message: "All fields required" });
+    }
+
+    email = email.toLowerCase().trim();
+
+    if (!validator.isEmail(email)) {
+      return res.status(400).json({ success: false, message: "Invalid email" });
+    }
+
+    
+    if (phone && !/^[0-9]{10,15}$/.test(phone)) {
+      return res.status(400).json({ success: false, message: "Invalid phone number" });
+    }
+
+    const exist = await User.findOne({ email });
+    if (exist) {
+      return res.status(400).json({ success: false, message: "User already exists" });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const user = await User.create({
+      fullName,
+      username: fullName,
+      email,
+      phone,
+      password: hashedPassword,
+      role: "admin", 
+    });
+
+    const token = jwt.sign(
+      { id: user._id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    res.json({ success: true, token, user });
+
+  } catch (err) {
+    console.log("SIGNUP ERROR:", err);
+    res.status(500).json({ success: false, message: "Signup error" });
+  }
+};
+
+
+
+export const login = async (req, res) => {
+  try {
+    let { identifier, password } = req.body;
+
+    if (!identifier?.trim() || !password?.trim()) {
+      return res.status(400).json({ success: false, message: "All fields required" });
+    }
+
+    identifier = identifier.trim();
+
+    let user =
+      /^[0-9]{10,15}$/.test(identifier)
+        ? await User.findOne({ phone: identifier })
+        : await User.findOne({ email: identifier.toLowerCase() });
+
+    if (!user) {
+      return res.status(400).json({ success: false, message: "User not found" });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+
+    if (!isMatch) {
+      return res.status(400).json({ success: false, message: "Wrong password" });
+    }
+
+    const token = jwt.sign(
+      { id: user._id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    res.json({ success: true, token, user });
+
+  } catch (err) {
+    console.log("LOGIN ERROR:", err);
+    res.status(500).json({ success: false, message: "Login error" });
+  }
+};
+
+
+
 export const getUserBookings = async (req, res) => {
-    try {
-        const userId = req.auth().userId;
+  try {
+    const bookings = await Booking.find({
+      user: req.user.id,
+      isPaid: true,
+    })
+      .populate({
+        path: "show",
+        populate: { path: "movie" },
+      })
+      .sort({ createdAt: -1 });
 
-        const bookings = await Booking.find({
-            user: req.userId,
-            isPaid: true
-        }).populate({
-            path: "show",
-            populate: { path: "movie" }
-        }).sort({ createdAt: -1 })
-        console.log("Bookings found:", bookings)
-        res.json({ success: true, bookings })
-    } catch (error) {
-        console.log(error);
-        res.json({ success: false, message: error.message });
-    }
-}
+    res.json({ success: true, bookings });
 
-// API Controller Function to update Favorite Movie in Clerk User Metadata
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+
+
 export const updateFavorite = async (req, res) => {
-    try {
-        const { movieId } = req.body;
-        const userId = req.auth().userId;
+  try {
+    const { movieId } = req.body;
+    const user = await User.findById(req.user.id);
 
-        const user = await clerkClient.users.getUser(userId)
+    const exists = user.favorites?.includes(movieId);
 
-        if (!user.privateMetadata.favorites) {
-            user.privateMetadata.favorites = []
-        } else {
-            user.privateMetadata.favorites = user.privateMetadata.favorites.filter(item => item !== movieId)
-        }
-
-        if (!user.privateMetadata.favorites.includes(movieId)) {
-            user.privateMetadata.favorites.push(movieId)
-        }
-
-        await clerkClient.users.updateUserMetadata(userId, { privateMetadata: user.privateMetadata })
-
-        res.json({ success: true, message: "Favorite added successfully." })
-    } catch (error) {
-        console.log(error);
-        res.json({ success: false, message: error.message });
+    if (exists) {
+      user.favorites = user.favorites.filter(
+        (id) => id.toString() !== movieId
+      );
+    } else {
+      user.favorites.push(movieId);
     }
-}
+
+    await user.save();
+
+    
+    res.json({ 
+      success: true, 
+      message: exists ? "Removed from favorites" : "Added to favorites"
+    });
+
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 
 export const getFavorites = async (req, res) => {
-    try {
-        const user = await clerkClient.users.getUser(req.auth().userId)
-        const favorites = user.privateMetadata.favorites
+  try {
+    const user = await User.findById(req.user.id);
 
-        // Get movies from database
-        const movies = await Movie.find({ _id: { $in: favorites } })
-
-        res.json({ success: true, movies })
-    } catch (error) {
-        console.log(error);
-        res.json({ success: false, message: error.message });
+    
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
     }
-}
+
+    const movies = await Movie.find({
+      _id: { $in: user.favorites || [] },
+    });
+
+    res.json({ success: true, movies });
+
+  } catch (error) {
+    console.log("GET FAVORITES ERROR:", error); 
+    res.status(500).json({ success: false, message: error.message });
+  }
+};

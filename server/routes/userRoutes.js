@@ -1,11 +1,23 @@
-import express from "express"
-import { getFavorites, getUserBookings, updateFavorite } from "../controllers/userController.js";
-import { requireAuth } from "@clerk/express";
+import express from "express";
+
+import {
+  signup,
+  login,
+  getFavorites,
+  getUserBookings,
+  updateFavorite,
+  
+} from "../controllers/userController.js";
+
+import auth from "../middleware/auth.js";
 
 const userRouter = express.Router();
 
-userRouter.get('/bookings', requireAuth(), getUserBookings)
-userRouter.post('/update-favorite', requireAuth(), updateFavorite)
-userRouter.get('/favorite', requireAuth(), getFavorites)
+userRouter.post("/signup", signup);
+userRouter.post("/login", login);
+userRouter.get("/bookings", auth, getUserBookings);
+userRouter.get("/favorites", auth, getFavorites);
+userRouter.post("/favorites", auth, updateFavorite);
+
 
 export default userRouter;

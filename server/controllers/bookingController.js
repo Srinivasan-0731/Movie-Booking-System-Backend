@@ -3,16 +3,12 @@ import Show from "../models/Show.js"
 import Razorpay from "razorpay"
 import crypto from "crypto";
 
-
-
-//Function to check availability of selected seats for a movie
 const checkSeatsAvailability = async (showId, selectedSeats) => {
     try {
         const showData = await Show.findById(showId)
         if (!showData) return false;
 
         const occupiedSeats = showData.occupiedSeats;
-
         const isAnySeatTaken = selectedSeats.some(seat => occupiedSeats[seat]);
 
         return !isAnySeatTaken;
@@ -24,23 +20,21 @@ const checkSeatsAvailability = async (showId, selectedSeats) => {
 
 export const createBooking = async (req, res) => {
     try {
-        const { userId } = req.auth();
+        // req.auth() → req.user.id
+        const userId = req.user.id;
         const { showId, selectedSeats } = req.body;
-        const { origin } = req.headers;
 
-        // Check if the seat is available for the selected show
         const isAvailable = await checkSeatsAvailability(showId, selectedSeats)
 
         if (!isAvailable) {
-            return res.json(({ success: false, message: "Selected Seats are not available." }))
+            return res.json({ success: false, message: "Selected Seats are not available." })
         }
 
-        // Get the show details
         const showData = await Show.findById(showId).populate('movie');
 
-        // Create a new booking
+        // userId → user
         const booking = await Booking.create({
-            userId: userId,
+            user: userId,
             show: showId,
             amount: showData.showPrice * selectedSeats.length,
             bookedSeats: selectedSeats,
@@ -51,24 +45,19 @@ export const createBooking = async (req, res) => {
         })
 
         showData.markModified('occupiedSeats');
-
         await showData.save();
 
-        // Razorpay Gateway Initialize
         const razorpayInstance = new Razorpay({
             key_id: process.env.RAZORPAY_KEY_ID,
             key_secret: process.env.RAZORPAY_SECRET_KEY
         })
 
-
-        // Create Razorpay Order
         const order = await razorpayInstance.orders.create({
             amount: booking.amount * 100,
             currency: "INR",
             receipt: booking._id.toString(),
         });
 
-        // Save order id
         booking.paymentId = order.id;
         await booking.save();
 
@@ -79,9 +68,8 @@ export const createBooking = async (req, res) => {
             bookingId: booking._id
         });
     } catch (error) {
-        console.log(error.meesage);
+        console.log(error.message);
         res.json({ success: false, message: error.message })
-
     }
 }
 
@@ -100,7 +88,6 @@ export const getOccupiedSeats = async (req, res) => {
 }
 
 export const verifyPayment = async (req, res) => {
-
     const {
         razorpay_order_id,
         razorpay_payment_id,
@@ -116,16 +103,15 @@ export const verifyPayment = async (req, res) => {
         .digest("hex");
 
     if (expectedSignature === razorpay_signature) {
-
         const booking = await Booking.findById(bookingId);
         booking.isPaid = true;
         await booking.save();
-        console.log("Booking after update:", booking)
 
         const showData = await Show.findById(booking.show);
 
+        // userId → user
         booking.bookedSeats.forEach((seat) => {
-            showData.occupiedSeats[seat] = booking.userId;
+            showData.occupiedSeats[seat] = booking.user;
         });
 
         showData.markModified("occupiedSeats");

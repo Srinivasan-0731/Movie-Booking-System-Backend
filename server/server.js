@@ -1,40 +1,66 @@
-import express from 'express';
-import cors from 'cors';
-import 'dotenv/config';
-import connectDB from './configs/db.js';
-import { clerkMiddleware } from '@clerk/express'
+import express from "express";
+import cors from "cors";
+import "dotenv/config";
+import connectDB from "./configs/db.js";
 import { serve } from "inngest/express";
-import { inngest, functions } from './inngest/index.js';
-import showRouter from './routes/showRoutes.js';
-import bookingRouter from './routes/bookingRoutes.js';
-import adminRouter from './routes/adminRoutes.js';
-import userRouter from './routes/userRoutes.js';
-import { razorpayWebhooks } from './controllers/razorpayWebhooks.js';
-
+import { inngest, functions } from "./inngest/index.js";
+import showRouter from "./routes/showRoutes.js";
+import bookingRouter from "./routes/bookingRoutes.js";
+import adminRouter from "./routes/adminRoutes.js";
+import userRouter from "./routes/userRoutes.js";
+import { razorpayWebhooks } from "./controllers/razorpayWebhooks.js";
 
 const app = express();
 const port = process.env.PORT || 3000;
 
-await connectDB()
 
-// Razorpay Webhooks Route
-app.use('/api/webhooks/razorpay', express.raw({type: 'application/json'}), razorpayWebhooks)
-
-// Middleware
-app.use(express.json())
-app.use(cors())
-app.use(clerkMiddleware())
+connectDB()
+  .then(() => console.log("MongoDB Connected"))
+  .catch((err) => console.log(err));
 
 
+// Razorpay webhook 
+app.use(
+  "/api/webhooks/razorpay",
+  express.raw({ type: "application/json" }), razorpayWebhooks
+);
 
-//API Routes
-app.get('/', (req, res) => res.send('Server is Live!'))
-app.use('/api/inngest', serve({ client: inngest, functions }))
-app.use('/api/show', showRouter)
-app.use('/api/booking', bookingRouter)
-app.use('/api/admin', adminRouter)
-app.use('/api/user', userRouter)
+
+// middleware
+app.use(express.json());
+
+app.use(cors({origin: "http://localhost:5173", credentials: true,}));
+
+
+app.get("/", (req, res) => res.send("Server is Live!"));
+
+app.use("/api/inngest", serve({ client: inngest, functions }));
+
+app.use("/api/show", showRouter);
+app.use("/api/booking", bookingRouter);
+app.use("/api/admin", adminRouter);
+app.use("/api/user", userRouter);
+
+
+
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    message: "Route not found",
+  });
+});
+
+
+
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({
+    success: false,
+    message: "Server error",
+  });
+});
+
 
 app.listen(port, () => {
-    console.log(`Server listing at http://localhost:${port}`)
+  console.log(`Server running http://localhost:${port}`);
 });
