@@ -27,13 +27,11 @@ app.use(
 // middleware
 app.use(express.json());
 
-
 app.use(
   cors({
-    origin: [
-      "http://localhost:5173",
-      "https://celadon-praline-255189.netlify.app",
-    ],
+    origin: function (origin, callback) {
+      callback(null, true);
+    },
     credentials: true,
   })
 );
