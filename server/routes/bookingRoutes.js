@@ -1,12 +1,17 @@
-import express from 'express'
-import { createBooking, getOccupiedSeats, verifyPayment } from '../controllers/bookingController.js';
+import express from 'express';
+import {
+  createBooking,
+  getOccupiedSeats,
+  verifyPayment,
+  cancelBooking,
+} from '../controllers/bookingController.js';
 import auth from '../middleware/auth.js';
 
 const bookingRouter = express.Router();
 
-
 bookingRouter.post('/create', auth, createBooking);
 bookingRouter.get('/seats/:showId', getOccupiedSeats);
-bookingRouter.post('/verify-payment', verifyPayment)
+bookingRouter.post('/verify-payment', verifyPayment);
+bookingRouter.delete('/cancel/:bookingId', auth, cancelBooking); 
 
 export default bookingRouter;

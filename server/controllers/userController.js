@@ -5,7 +5,6 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import validator from "validator";
 
-
 export const signup = async (req, res) => {
   try {
     let { fullName, email, phone, password } = req.body;
@@ -20,7 +19,6 @@ export const signup = async (req, res) => {
       return res.status(400).json({ success: false, message: "Invalid email" });
     }
 
-    
     if (phone && !/^[0-9]{10,15}$/.test(phone)) {
       return res.status(400).json({ success: false, message: "Invalid phone number" });
     }
@@ -38,7 +36,7 @@ export const signup = async (req, res) => {
       email,
       phone,
       password: hashedPassword,
-      role: "admin", 
+      role: "user", 
     });
 
     const token = jwt.sign(
@@ -48,14 +46,11 @@ export const signup = async (req, res) => {
     );
 
     res.json({ success: true, token, user });
-
   } catch (err) {
     console.log("SIGNUP ERROR:", err);
     res.status(500).json({ success: false, message: "Signup error" });
   }
 };
-
-
 
 export const login = async (req, res) => {
   try {
@@ -77,7 +72,6 @@ export const login = async (req, res) => {
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
-
     if (!isMatch) {
       return res.status(400).json({ success: false, message: "Wrong password" });
     }
@@ -89,14 +83,11 @@ export const login = async (req, res) => {
     );
 
     res.json({ success: true, token, user });
-
   } catch (err) {
     console.log("LOGIN ERROR:", err);
     res.status(500).json({ success: false, message: "Login error" });
   }
 };
-
-
 
 export const getUserBookings = async (req, res) => {
   try {
@@ -111,13 +102,10 @@ export const getUserBookings = async (req, res) => {
       .sort({ createdAt: -1 });
 
     res.json({ success: true, bookings });
-
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
-
 
 export const updateFavorite = async (req, res) => {
   try {
@@ -127,32 +115,26 @@ export const updateFavorite = async (req, res) => {
     const exists = user.favorites?.includes(movieId);
 
     if (exists) {
-      user.favorites = user.favorites.filter(
-        (id) => id.toString() !== movieId
-      );
+      user.favorites = user.favorites.filter((id) => id.toString() !== movieId);
     } else {
       user.favorites.push(movieId);
     }
 
     await user.save();
 
-    
-    res.json({ 
-      success: true, 
-      message: exists ? "Removed from favorites" : "Added to favorites"
+    res.json({
+      success: true,
+      message: exists ? "Removed from favorites" : "Added to favorites",
     });
-
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 };
 
-
 export const getFavorites = async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
 
-    
     if (!user) {
       return res.status(404).json({ success: false, message: "User not found" });
     }
@@ -162,9 +144,8 @@ export const getFavorites = async (req, res) => {
     });
 
     res.json({ success: true, movies });
-
   } catch (error) {
-    console.log("GET FAVORITES ERROR:", error); 
+    console.log("GET FAVORITES ERROR:", error);
     res.status(500).json({ success: false, message: error.message });
   }
 };

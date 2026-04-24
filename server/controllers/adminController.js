@@ -3,7 +3,6 @@ import Show from "../models/Show.js";
 import User from "../models/User.js";
 import Movie from "../models/Movie.js";
 
-
 export const isAdmin = async (req, res) => {
   try {
     res.json({
@@ -12,13 +11,9 @@ export const isAdmin = async (req, res) => {
     });
   } catch (error) {
     console.error("IS ADMIN ERROR:", error);
-    res.status(500).json({
-      success: false,
-      message: "Admin check failed",
-    });
+    res.status(500).json({ success: false, message: "Admin check failed" });
   }
 };
-
 
 export const getDashboardData = async (req, res) => {
   try {
@@ -31,11 +26,8 @@ export const getDashboardData = async (req, res) => {
     const totalUser = await User.countDocuments();
 
     const dashboardData = {
-      totalBooking: bookings.length,
-      totalRevenue: bookings.reduce(
-        (acc, booking) => acc + booking.amount,
-        0
-      ),
+      totalBookings: bookings.length, 
+      totalRevenue: bookings.reduce((acc, booking) => acc + booking.amount, 0),
       activeShows,
       totalUser,
     };
@@ -43,13 +35,9 @@ export const getDashboardData = async (req, res) => {
     res.json({ success: true, dashboardData });
   } catch (error) {
     console.error("DASHBOARD ERROR:", error);
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
-
 
 export const getAllShows = async (req, res) => {
   try {
@@ -62,13 +50,9 @@ export const getAllShows = async (req, res) => {
     res.json({ success: true, shows });
   } catch (error) {
     console.error("GET SHOWS ERROR:", error);
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
-
 
 export const getAllBookings = async (req, res) => {
   try {
@@ -83,38 +67,25 @@ export const getAllBookings = async (req, res) => {
     res.json({ success: true, bookings });
   } catch (error) {
     console.error("GET BOOKINGS ERROR:", error);
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
-
 
 export const getFavorites = async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
 
     if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      });
+      return res.status(404).json({ success: false, message: "User not found" });
     }
 
     const movies = await Movie.find({
       _id: { $in: user.favorites || [] },
     });
 
-    res.json({
-      success: true,
-      movies,
-    });
+    res.json({ success: true, movies });
   } catch (error) {
     console.error("GET FAVORITES ERROR:", error);
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
