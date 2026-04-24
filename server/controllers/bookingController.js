@@ -3,6 +3,11 @@ import Show from "../models/Show.js";
 import Razorpay from "razorpay";
 import crypto from "crypto";
 
+const razorpayInstance = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID,
+  key_secret: process.env.RAZORPAY_SECRET_KEY,
+});
+
 const checkSeatsAvailability = async (showId, selectedSeats) => {
   try {
     const showData = await Show.findById(showId);
@@ -16,10 +21,11 @@ const checkSeatsAvailability = async (showId, selectedSeats) => {
   }
 };
 
+// Create booking — Pay Now or Pay Later
 export const createBooking = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { showId, selectedSeats } = req.body;
+    const { showId, selectedSeats, payLater } = req.body;
 
     const isAvailable = await checkSeatsAvailability(showId, selectedSeats);
     if (!isAvailable) {
@@ -28,30 +34,79 @@ export const createBooking = async (req, res) => {
 
     const showData = await Show.findById(showId).populate("movie");
 
+    const amount = showData.showPrice * selectedSeats.length;
+
+    // Mark seats as occupied
+    selectedSeats.forEach((seat) => {
+      showData.occupiedSeats[seat] = userId;
+    });
+    showData.markModified("occupiedSeats");
+    await showData.save();
 
     const booking = await Booking.create({
       user: userId,
       show: showId,
-      amount: showData.showPrice * selectedSeats.length,
+      amount,
       bookedSeats: selectedSeats,
+      isPaid: false,
     });
 
-    selectedSeats.forEach((seat) => {
-      showData.occupiedSeats[seat] = userId;
+    // PAY LATER — booking save pannuchu, payment skip
+    if (payLater) {
+      return res.json({
+        success: true,
+        bookingId: booking._id,
+        message: "Booking saved. Pay at counter before showtime.",
+      });
+    }
+
+    // PAY NOW — Razorpay order create
+    const order = await razorpayInstance.orders.create({
+      amount: amount * 100, // paise
+      currency: "INR",
+      receipt: booking._id.toString(),
     });
 
-    showData.markModified("occupiedSeats");
-    await showData.save();
+    booking.paymentId = order.id;
+    await booking.save();
 
-    const razorpayInstance = new Razorpay({
-      key_id: process.env.RAZORPAY_KEY_ID,
-      key_secret: process.env.RAZORPAY_SECRET_KEY,
+    res.json({
+      success: true,
+      orderId: order.id,
+      amount: order.amount,
+      bookingId: booking._id,
     });
+  } catch (error) {
+    console.log(error.message);
+    res.json({ success: false, message: error.message });
+  }
+};
 
+// Pay Now — MyBookings page la Pay Later booking ku payment trigger
+export const payNow = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { bookingId } = req.body;
+
+    const booking = await Booking.findById(bookingId);
+
+    if (!booking) {
+      return res.json({ success: false, message: "Booking not found" });
+    }
+
+    if (booking.user.toString() !== userId) {
+      return res.status(403).json({ success: false, message: "Unauthorized" });
+    }
+
+    if (booking.isPaid) {
+      return res.json({ success: false, message: "Already paid" });
+    }
+
+    // New Razorpay order
     const order = await razorpayInstance.orders.create({
       amount: booking.amount * 100,
       currency: "INR",
-      receipt: booking._id.toString(),
+      receipt: `paynow_${bookingId}`,
     });
 
     booking.paymentId = order.id;
@@ -101,16 +156,9 @@ export const verifyPayment = async (req, res) => {
     booking.isPaid = true;
     await booking.save();
 
-    const showData = await Show.findById(booking.show);
-    booking.bookedSeats.forEach((seat) => {
-      showData.occupiedSeats[seat] = booking.user;
-    });
-    showData.markModified("occupiedSeats");
-    await showData.save();
-
     res.json({ success: true, redirectUrl: "/loading/my-bookings" });
   } else {
-    res.json({ success: false });
+    res.json({ success: false, message: "Payment verification failed" });
   }
 };
 
@@ -126,13 +174,8 @@ export const cancelBooking = async (req, res) => {
       return res.json({ success: false, message: "Booking not found" });
     }
 
-
     if (booking.user.toString() !== userId) {
       return res.status(403).json({ success: false, message: "Unauthorized" });
-    }
-
-    if (!booking.isPaid) {
-      return res.json({ success: false, message: "Booking is not paid" });
     }
 
     // Release seats from show
