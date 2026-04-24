@@ -11,7 +11,7 @@ const tmdbGet = async (url, retries = 3, delayMs = 500) => {
         headers: {
           Authorization: `Bearer ${process.env.TMDB_API_KEY}`,
         },
-        timeout: 1000,
+        timeout: 10000,
       });
       return data;
     } catch (error) {
@@ -32,9 +32,8 @@ const tmdbGet = async (url, retries = 3, delayMs = 500) => {
   }
 };
 
-// Timezone-safe date key (IST / local time, not UTC)
+// Timezone-safe date key (IST)
 const getLocalDateKey = (dateObj) => {
-  
   const IST_OFFSET = 5.5 * 60 * 60 * 1000;
   const istDate = new Date(dateObj.getTime() + IST_OFFSET);
   return istDate.toISOString().split("T")[0];
@@ -63,16 +62,19 @@ export const addShow = async (req, res) => {
       });
     }
 
-    let movie = await Movie.findById(movieId);
+    
+    const movieIdStr = String(movieId);
+
+    let movie = await Movie.findById(movieIdStr);
 
     if (!movie) {
       const [m, c] = await Promise.all([
-        tmdbGet(`https://api.themoviedb.org/3/movie/${movieId}`),
-        tmdbGet(`https://api.themoviedb.org/3/movie/${movieId}/credits`),
+        tmdbGet(`https://api.themoviedb.org/3/movie/${movieIdStr}`),
+        tmdbGet(`https://api.themoviedb.org/3/movie/${movieIdStr}/credits`),
       ]);
 
       movie = await Movie.create({
-        _id: movieId,
+        _id: movieIdStr,
         title: m.title,
         overview: m.overview,
         poster_path: m.poster_path,
@@ -87,9 +89,8 @@ export const addShow = async (req, res) => {
       });
     }
 
-    // screen field support
     const showToCreate = showsInput.map((show) => ({
-      movie: movieId,
+      movie: movieIdStr,
       showDateTime: new Date(`${show.date}T${show.time}:00`),
       showPrice,
       screen: show.screen || "Screen 1",
@@ -145,7 +146,6 @@ export const getShows = async (req, res) => {
       }
 
       const entry = movieMap.get(id);
-      //  Use IST date key instead of UTC
       const dateKey = getLocalDateKey(show.showDateTime);
       const screen = show.screen || "Screen 1";
 
@@ -177,27 +177,29 @@ export const getShow = async (req, res) => {
   try {
     const { movieId } = req.params;
 
-    const parsedMovieId = Number(movieId);
-    if (isNaN(parsedMovieId)) {
+  
+    if (!movieId || movieId === "undefined") {
       return res.status(400).json({ success: false, message: "Invalid movie ID" });
     }
 
+    const movieIdStr = String(movieId);
+
     const [shows, movie] = await Promise.all([
       Show.find({
-        movie: parsedMovieId,
+        movie: movieIdStr,           
         showDateTime: { $gte: new Date() },
       }),
-      Movie.findById(parsedMovieId),
+      Movie.findById(movieIdStr),    
     ]);
 
     if (!movie) {
       return res.status(404).json({ success: false, message: "Movie not found" });
     }
 
-    // Group by IST date → screen → times
+    
     const dateTime = {};
     shows.forEach((show) => {
-      const date = getLocalDateKey(show.showDateTime); 
+      const date = getLocalDateKey(show.showDateTime);
       const screen = show.screen || "Screen 1";
 
       if (!dateTime[date]) {
@@ -219,7 +221,7 @@ export const getShow = async (req, res) => {
     let trailerKey = null;
     try {
       const videosData = await tmdbGet(
-        `https://api.themoviedb.org/3/movie/${parsedMovieId}/videos`
+        `https://api.themoviedb.org/3/movie/${movieIdStr}/videos`
       );
       const trailer = videosData.results.find(
         (v) => v.type === "Trailer" && v.site === "YouTube"
