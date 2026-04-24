@@ -11,7 +11,7 @@ const tmdbGet = async (url, retries = 3, delayMs = 500) => {
         headers: {
           Authorization: `Bearer ${process.env.TMDB_API_KEY}`,
         },
-        timeout: 1000, 
+        timeout: 1000,
       });
       return data;
     } catch (error) {
@@ -32,7 +32,15 @@ const tmdbGet = async (url, retries = 3, delayMs = 500) => {
   }
 };
 
-//  Get now playing movies
+// Timezone-safe date key (IST / local time, not UTC)
+const getLocalDateKey = (dateObj) => {
+  
+  const IST_OFFSET = 5.5 * 60 * 60 * 1000;
+  const istDate = new Date(dateObj.getTime() + IST_OFFSET);
+  return istDate.toISOString().split("T")[0];
+};
+
+// Get now playing movies
 export const getNowPlayingMovies = async (req, res) => {
   try {
     const data = await tmdbGet("https://api.themoviedb.org/3/movie/now_playing");
@@ -43,6 +51,7 @@ export const getNowPlayingMovies = async (req, res) => {
   }
 };
 
+// Add Show : /api/show/add
 export const addShow = async (req, res) => {
   try {
     const { movieId, showsInput, showPrice } = req.body;
@@ -78,10 +87,12 @@ export const addShow = async (req, res) => {
       });
     }
 
+    // screen field support
     const showToCreate = showsInput.map((show) => ({
       movie: movieId,
       showDateTime: new Date(`${show.date}T${show.time}:00`),
       showPrice,
+      screen: show.screen || "Screen 1",
       occupiedSeats: {},
     }));
 
@@ -101,7 +112,7 @@ export const addShow = async (req, res) => {
   }
 };
 
-//  Get all upcoming shows
+// Get all upcoming shows : /api/show/all
 export const getShows = async (req, res) => {
   try {
     const shows = await Show.find({
@@ -110,24 +121,58 @@ export const getShows = async (req, res) => {
       .populate("movie")
       .sort({ showDateTime: 1 });
 
-    const map = new Map();
-    shows.forEach((show) => {
-      
-      if (!show.movie) return;
+    const validShows = shows.filter((show) => show.movie !== null);
+
+    if (validShows.length === 0) {
+      const movies = await Movie.find({});
+      const formattedShows = movies.map((movie) => ({
+        movie,
+        dateTime: {},
+      }));
+      return res.json({ success: true, shows: formattedShows });
+    }
+
+    const movieMap = new Map();
+
+    validShows.forEach((show) => {
       const id = show.movie._id.toString();
-      if (!map.has(id)) {
-        map.set(id, show.movie);
+
+      if (!movieMap.has(id)) {
+        movieMap.set(id, {
+          movie: show.movie,
+          dateTime: {},
+        });
       }
+
+      const entry = movieMap.get(id);
+      //  Use IST date key instead of UTC
+      const dateKey = getLocalDateKey(show.showDateTime);
+      const screen = show.screen || "Screen 1";
+
+      if (!entry.dateTime[dateKey]) {
+        entry.dateTime[dateKey] = {};
+      }
+
+      if (!entry.dateTime[dateKey][screen]) {
+        entry.dateTime[dateKey][screen] = [];
+      }
+
+      entry.dateTime[dateKey][screen].push({
+        time: show.showDateTime,
+        showId: show._id,
+        showPrice: show.showPrice,
+        screen,
+      });
     });
 
-    res.json({ success: true, shows: Array.from(map.values()) });
+    res.json({ success: true, shows: Array.from(movieMap.values()) });
   } catch (error) {
     console.error("getShows error:", error.message);
     res.status(500).json({ success: false, message: error.message });
   }
 };
 
-//  Get single movie shows
+// Get single movie shows : /api/show/:movieId
 export const getShow = async (req, res) => {
   try {
     const { movieId } = req.params;
@@ -149,20 +194,28 @@ export const getShow = async (req, res) => {
       return res.status(404).json({ success: false, message: "Movie not found" });
     }
 
+    // Group by IST date → screen → times
     const dateTime = {};
     shows.forEach((show) => {
-      const date = show.showDateTime.toISOString().split("T")[0];
+      const date = getLocalDateKey(show.showDateTime); 
+      const screen = show.screen || "Screen 1";
+
       if (!dateTime[date]) {
-        dateTime[date] = [];
+        dateTime[date] = {};
       }
-      dateTime[date].push({
+      if (!dateTime[date][screen]) {
+        dateTime[date][screen] = [];
+      }
+
+      dateTime[date][screen].push({
         time: show.showDateTime,
         showId: show._id,
         showPrice: show.showPrice,
+        screen,
       });
     });
 
-    
+    // Trailer fetch
     let trailerKey = null;
     try {
       const videosData = await tmdbGet(
@@ -173,11 +226,9 @@ export const getShow = async (req, res) => {
       );
       trailerKey = trailer ? trailer.key : null;
     } catch (videoError) {
-      
       console.warn("Trailer fetch failed:", videoError.message);
     }
 
-    
     const cast = (movie.casts || []).slice(0, 10).map((member) => ({
       id: member.id,
       name: member.name,
