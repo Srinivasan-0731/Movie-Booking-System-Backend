@@ -36,7 +36,7 @@ export const signup = async (req, res) => {
       email,
       phone,
       password: hashedPassword,
-      role: "user", 
+      role: "user",
     });
 
     const token = jwt.sign(
@@ -93,7 +93,6 @@ export const getUserBookings = async (req, res) => {
   try {
     const bookings = await Booking.find({
       user: req.user.id,
-      isPaid: true,
     })
       .populate({
         path: "show",
