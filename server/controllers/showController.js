@@ -37,8 +37,6 @@ export const addShow = async (req, res) => {
 export const getShows = async (req, res) => {
   try {
     const shows = await Show.find({}).populate("movie");
-
-  
     const validShows = shows.filter((show) => show.movie !== null);
 
     const movieMap = {};
@@ -54,7 +52,8 @@ export const getShows = async (req, res) => {
           };
         }
 
-        const dateKey = show.date;
+        
+        const dateKey = show.date || "no-date";
         if (!movieMap[movieId].dateTime[dateKey]) {
           movieMap[movieId].dateTime[dateKey] = [];
         }
@@ -62,10 +61,9 @@ export const getShows = async (req, res) => {
         movieMap[movieId].dateTime[dateKey].push({
           time: show.time,
           showId: show._id,
-          showPrice: show.showPrice, 
+          showPrice: show.showPrice,
         });
       } catch (err) {
-        
         console.warn("Skipping show due to error:", err.message);
       }
     }
@@ -82,18 +80,25 @@ export const getShows = async (req, res) => {
 export const getShow = async (req, res) => {
   try {
     const { id } = req.params;
-    const shows = await Show.find({ movie: id }).populate("movie");
+
+    
+    const movie = await Movie.findById(id);
+    if (!movie) {
+      return res.json({ success: false, message: "Movie not found" });
+    }
+
+    
+    const shows = await Show.find({ movie: id });
 
     if (!shows || shows.length === 0) {
       return res.json({ success: false, message: "Show not found" });
     }
 
-    const movie = shows[0].movie;
     const dateTime = {};
     let showPrice = 0;
 
     for (const show of shows) {
-      const dateKey = show.date;
+      const dateKey = show.date || "no-date";
       if (!dateTime[dateKey]) {
         dateTime[dateKey] = [];
       }
@@ -136,7 +141,6 @@ export const getNowPlayingMovies = async (req, res) => {
   try {
     const today = new Date().toISOString().split("T")[0];
     const shows = await Show.find({ date: { $gte: today } }).populate("movie");
-
     const validShows = shows.filter((show) => show.movie !== null);
 
     const movieMap = {};
