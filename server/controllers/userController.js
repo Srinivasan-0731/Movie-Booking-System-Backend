@@ -39,7 +39,7 @@ export const signup = async (req, res) => {
       email,
       phone: phone || "",
       password: hashedPassword,
-      role: "user",
+      role: "admin", 
     });
 
     const token = jwt.sign(
