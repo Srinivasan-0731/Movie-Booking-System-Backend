@@ -30,11 +30,14 @@ export const signup = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    // unique username — email prefix + timestamp
+    const username = email.split("@")[0] + "_" + Date.now();
+
     const user = await User.create({
       fullName,
-      username: fullName,
+      username,
       email,
-      phone,
+      phone: phone || "",
       password: hashedPassword,
       role: "user",
     });
@@ -48,7 +51,7 @@ export const signup = async (req, res) => {
     res.json({ success: true, token, user });
   } catch (err) {
     console.log("SIGNUP ERROR:", err);
-    res.status(500).json({ success: false, message: "Signup error" });
+    res.status(500).json({ success: false, message: err.message }); 
   }
 };
 
@@ -85,7 +88,7 @@ export const login = async (req, res) => {
     res.json({ success: true, token, user });
   } catch (err) {
     console.log("LOGIN ERROR:", err);
-    res.status(500).json({ success: false, message: "Login error" });
+    res.status(500).json({ success: false, message: err.message });
   }
 };
 
