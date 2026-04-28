@@ -30,7 +30,6 @@ export const signup = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // unique username — email prefix + timestamp
     const username = email.split("@")[0] + "_" + Date.now();
 
     const user = await User.create({
@@ -39,7 +38,7 @@ export const signup = async (req, res) => {
       email,
       phone: phone || "",
       password: hashedPassword,
-      role: "admin", 
+      role: "user", 
     });
 
     const token = jwt.sign(
@@ -51,7 +50,7 @@ export const signup = async (req, res) => {
     res.json({ success: true, token, user });
   } catch (err) {
     console.log("SIGNUP ERROR:", err);
-    res.status(500).json({ success: false, message: err.message }); 
+    res.status(500).json({ success: false, message: err.message });
   }
 };
 
