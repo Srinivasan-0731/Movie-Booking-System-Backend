@@ -13,8 +13,6 @@ export const signup = async (req, res) => {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-
-    // username = email prefix (before @)
     const username = email.split("@")[0];
 
     const user = await User.create({
@@ -47,7 +45,7 @@ export const signup = async (req, res) => {
   }
 };
 
-// Login - supports email or phone
+// Login
 export const login = async (req, res) => {
   try {
     const { identifier, password } = req.body;
@@ -56,7 +54,6 @@ export const login = async (req, res) => {
       return res.json({ success: false, message: "All fields required" });
     }
 
-    // identifier = email or phone
     const user = await User.findOne({
       $or: [{ email: identifier }, { phone: identifier }],
     });
@@ -86,6 +83,19 @@ export const login = async (req, res) => {
         image: user.image,
       },
     });
+  } catch (error) {
+    res.json({ success: false, message: error.message });
+  }
+};
+
+// Get User Profile - always fresh from DB
+export const getUserProfile = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select("-password");
+    if (!user) {
+      return res.json({ success: false, message: "User not found" });
+    }
+    res.json({ success: true, user });
   } catch (error) {
     res.json({ success: false, message: error.message });
   }
@@ -141,7 +151,7 @@ export const updateFavorite = async (req, res) => {
   }
 };
 
-// Make yourself admin - call once then REMOVE this route
+// TEMP: Make yourself admin - remove after use
 export const makeAdmin = async (req, res) => {
   try {
     const { email } = req.body;
