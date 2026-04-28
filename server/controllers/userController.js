@@ -5,19 +5,17 @@ import jwt from "jsonwebtoken";
 // Signup
 export const signup = async (req, res) => {
   try {
-    const { fullName, username, email, password, phone } = req.body;
+    const { fullName, email, password, phone } = req.body;
 
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.json({ success: false, message: "User already exists" });
     }
 
-    const existingUsername = await User.findOne({ username });
-    if (existingUsername) {
-      return res.json({ success: false, message: "Username already taken" });
-    }
-
     const hashedPassword = await bcrypt.hash(password, 10);
+
+    // username = email prefix (before @)
+    const username = email.split("@")[0];
 
     const user = await User.create({
       fullName,
@@ -25,7 +23,7 @@ export const signup = async (req, res) => {
       email,
       password: hashedPassword,
       phone: phone || "",
-      role: "user", // Fixed: was "admin" before
+      role: "user",
     });
 
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
@@ -123,9 +121,9 @@ export const updateFavorite = async (req, res) => {
 
     const index = user.favorites.indexOf(movieId);
     if (index > -1) {
-      user.favorites.splice(index, 1); // Remove
+      user.favorites.splice(index, 1);
     } else {
-      user.favorites.push(movieId); // Add
+      user.favorites.push(movieId);
     }
 
     await user.save();
