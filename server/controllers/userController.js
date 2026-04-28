@@ -24,9 +24,11 @@ export const signup = async (req, res) => {
       role: "user",
     });
 
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
-      expiresIn: "7d",
-    });
+    const token = jwt.sign(
+      { id: user._id, role: user.role }, 
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
 
     res.json({
       success: true,
@@ -67,9 +69,11 @@ export const login = async (req, res) => {
       return res.json({ success: false, message: "Invalid credentials" });
     }
 
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
-      expiresIn: "7d",
-    });
+    const token = jwt.sign(
+      { id: user._id, role: user.role }, 
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
 
     res.json({
       success: true,
@@ -88,7 +92,7 @@ export const login = async (req, res) => {
   }
 };
 
-// Get User Profile - always fresh from DB
+// Get User Profile
 export const getUserProfile = async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select("-password");
@@ -151,7 +155,7 @@ export const updateFavorite = async (req, res) => {
   }
 };
 
-// TEMP: Make yourself admin - remove after use
+// TEMP: Make admin
 export const makeAdmin = async (req, res) => {
   try {
     const { email } = req.body;
