@@ -47,12 +47,20 @@ export const signup = async (req, res) => {
   }
 };
 
-// Login
+// Login - supports email or phone
 export const login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { identifier, password } = req.body;
 
-    const user = await User.findOne({ email });
+    if (!identifier || !password) {
+      return res.json({ success: false, message: "All fields required" });
+    }
+
+    // identifier = email or phone
+    const user = await User.findOne({
+      $or: [{ email: identifier }, { phone: identifier }],
+    });
+
     if (!user) {
       return res.json({ success: false, message: "Invalid credentials" });
     }
