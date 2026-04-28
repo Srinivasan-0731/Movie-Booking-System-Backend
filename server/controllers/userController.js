@@ -141,13 +141,13 @@ export const updateFavorite = async (req, res) => {
   }
 };
 
-// Make yourself admin - call once then remove
+// Make yourself admin - call once then REMOVE this route
 export const makeAdmin = async (req, res) => {
   try {
-    const { email, secretKey } = req.body;
+    const { email } = req.body;
 
-    if (!process.env.ADMIN_SECRET || secretKey !== process.env.ADMIN_SECRET) {
-      return res.json({ success: false, message: "Unauthorized" });
+    if (!email) {
+      return res.json({ success: false, message: "Email required" });
     }
 
     const user = await User.findOneAndUpdate(
