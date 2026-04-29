@@ -86,10 +86,10 @@ export const addShow = async (req, res) => {
       });
     }
 
-  
+    
     const showToCreate = showsInput.map((show) => ({
       movie: movieIdStr,
-      showDateTime: new Date(`${show.date}T${show.time}:00+05:30`),
+      showDateTime: new Date(`${show.date}T${show.time}:00`),
       showPrice,
       screen: show.screen || "Screen 1",
       occupiedSeats: {},
@@ -194,7 +194,6 @@ export const getShow = async (req, res) => {
 
     const dateTime = {};
     shows.forEach((show) => {
-      
       const date = getLocalDateKey(show.showDateTime);
       const screen = show.screen || "Screen 1";
 
