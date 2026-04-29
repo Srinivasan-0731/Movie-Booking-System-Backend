@@ -30,7 +30,7 @@ const tmdbGet = async (url, retries = 3, delayMs = 500) => {
   }
 };
 
-
+// IST timezone-safe date key
 const getLocalDateKey = (dateObj) => {
   return new Date(dateObj).toLocaleDateString("en-CA", {
     timeZone: "Asia/Kolkata",
@@ -86,10 +86,10 @@ export const addShow = async (req, res) => {
       });
     }
 
-  
+    
     const showToCreate = showsInput.map((show) => ({
       movie: movieIdStr,
-      showDateTime: new Date(`${show.date}T${show.time}:00+05:30`),
+      showDateTime: new Date(`${show.date}T${show.time}:00`),
       showPrice,
       screen: show.screen || "Screen 1",
       occupiedSeats: {},
@@ -194,7 +194,7 @@ export const getShow = async (req, res) => {
 
     const dateTime = {};
     shows.forEach((show) => {
-      
+      // IST-safe date key
       const date = getLocalDateKey(show.showDateTime);
       const screen = show.screen || "Screen 1";
 

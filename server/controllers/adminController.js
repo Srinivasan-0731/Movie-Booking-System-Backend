@@ -26,7 +26,7 @@ export const getDashboardData = async (req, res) => {
     const totalUser = await User.countDocuments();
 
     const dashboardData = {
-      totalBookings: bookings.length, 
+      totalBookings: bookings.length,
       totalRevenue: bookings.reduce((acc, booking) => acc + booking.amount, 0),
       activeShows,
       totalUser,
@@ -39,6 +39,7 @@ export const getDashboardData = async (req, res) => {
   }
 };
 
+
 export const getAllShows = async (req, res) => {
   try {
     const shows = await Show.find({
@@ -47,7 +48,9 @@ export const getAllShows = async (req, res) => {
       .populate("movie")
       .sort({ showDateTime: 1 });
 
-    res.json({ success: true, shows });
+    const validShows = shows.filter((show) => show.movie !== null);
+
+    res.json({ success: true, shows: validShows });
   } catch (error) {
     console.error("GET SHOWS ERROR:", error);
     res.status(500).json({ success: false, message: error.message });
