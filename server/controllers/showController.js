@@ -3,7 +3,6 @@ import Movie from "../models/Movie.js";
 import Show from "../models/Show.js";
 import { inngest } from "../inngest/index.js";
 
-
 const tmdbGet = async (url, retries = 3, delayMs = 500) => {
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
@@ -26,17 +25,16 @@ const tmdbGet = async (url, retries = 3, delayMs = 500) => {
         await new Promise((res) => setTimeout(res, delayMs * attempt));
         continue;
       }
-
       throw error;
     }
   }
 };
 
-// Timezone-safe date key (IST)
+
 const getLocalDateKey = (dateObj) => {
-  const IST_OFFSET = 5.5 * 60 * 60 * 1000;
-  const istDate = new Date(dateObj.getTime() + IST_OFFSET);
-  return istDate.toISOString().split("T")[0];
+  return new Date(dateObj).toLocaleDateString("en-CA", {
+    timeZone: "Asia/Kolkata",
+  });
 };
 
 // Get now playing movies
@@ -62,7 +60,6 @@ export const addShow = async (req, res) => {
       });
     }
 
-    
     const movieIdStr = String(movieId);
 
     let movie = await Movie.findById(movieIdStr);
@@ -89,9 +86,10 @@ export const addShow = async (req, res) => {
       });
     }
 
+  
     const showToCreate = showsInput.map((show) => ({
       movie: movieIdStr,
-      showDateTime: new Date(`${show.date}T${show.time}:00`),
+      showDateTime: new Date(`${show.date}T${show.time}:00+05:30`),
       showPrice,
       screen: show.screen || "Screen 1",
       occupiedSeats: {},
@@ -152,7 +150,6 @@ export const getShows = async (req, res) => {
       if (!entry.dateTime[dateKey]) {
         entry.dateTime[dateKey] = {};
       }
-
       if (!entry.dateTime[dateKey][screen]) {
         entry.dateTime[dateKey][screen] = [];
       }
@@ -177,7 +174,6 @@ export const getShow = async (req, res) => {
   try {
     const { movieId } = req.params;
 
-  
     if (!movieId || movieId === "undefined") {
       return res.status(400).json({ success: false, message: "Invalid movie ID" });
     }
@@ -186,19 +182,19 @@ export const getShow = async (req, res) => {
 
     const [shows, movie] = await Promise.all([
       Show.find({
-        movie: movieIdStr,           
+        movie: movieIdStr,
         showDateTime: { $gte: new Date() },
       }),
-      Movie.findById(movieIdStr),    
+      Movie.findById(movieIdStr),
     ]);
 
     if (!movie) {
       return res.status(404).json({ success: false, message: "Movie not found" });
     }
 
-    
     const dateTime = {};
     shows.forEach((show) => {
+      
       const date = getLocalDateKey(show.showDateTime);
       const screen = show.screen || "Screen 1";
 
@@ -217,7 +213,6 @@ export const getShow = async (req, res) => {
       });
     });
 
-    // Trailer fetch
     let trailerKey = null;
     try {
       const videosData = await tmdbGet(
