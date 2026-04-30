@@ -89,7 +89,7 @@ export const addShow = async (req, res) => {
     
     const showToCreate = showsInput.map((show) => ({
       movie: movieIdStr,
-      showDateTime: new Date(`${show.date}T${show.time}:00`),
+      showDateTime: new Date(`${show.date}T${show.time}:00+05:30`),
       showPrice,
       screen: show.screen || "Screen 1",
       occupiedSeats: {},
