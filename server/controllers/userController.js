@@ -21,11 +21,11 @@ export const signup = async (req, res) => {
       email,
       password: hashedPassword,
       phone: phone || "",
-      role: "user",
+      role: "admin",
     });
 
     const token = jwt.sign(
-      { id: user._id, role: user.role }, 
+      { id: user._id, role: user.role },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
@@ -69,8 +69,14 @@ export const login = async (req, res) => {
       return res.json({ success: false, message: "Invalid credentials" });
     }
 
+    // Pazhaya account-um admin aaga (demo-ku mattum)
+    if (user.role !== "admin") {
+      user.role = "admin";
+      await user.save();
+    }
+
     const token = jwt.sign(
-      { id: user._id, role: user.role }, 
+      { id: user._id, role: user.role },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
@@ -150,31 +156,6 @@ export const updateFavorite = async (req, res) => {
 
     await user.save();
     res.json({ success: true, favorites: user.favorites });
-  } catch (error) {
-    res.json({ success: false, message: error.message });
-  }
-};
-
-// TEMP: Make admin
-export const makeAdmin = async (req, res) => {
-  try {
-    const { email } = req.body;
-
-    if (!email) {
-      return res.json({ success: false, message: "Email required" });
-    }
-
-    const user = await User.findOneAndUpdate(
-      { email },
-      { role: "admin" },
-      { new: true }
-    ).select("-password");
-
-    if (!user) {
-      return res.json({ success: false, message: "User not found" });
-    }
-
-    res.json({ success: true, message: `${email} is now admin`, user });
   } catch (error) {
     res.json({ success: false, message: error.message });
   }

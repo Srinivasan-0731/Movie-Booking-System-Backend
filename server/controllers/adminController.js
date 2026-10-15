@@ -5,9 +5,11 @@ import Movie from "../models/Movie.js";
 
 export const isAdmin = async (req, res) => {
   try {
+    const dbUser = await User.findById(req.user.id).select("role");
+
     res.json({
       success: true,
-      isAdmin: req.user.role === "admin",
+      isAdmin: dbUser?.role === "admin",
     });
   } catch (error) {
     console.error("IS ADMIN ERROR:", error);
@@ -38,7 +40,6 @@ export const getDashboardData = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
 
 export const getAllShows = async (req, res) => {
   try {

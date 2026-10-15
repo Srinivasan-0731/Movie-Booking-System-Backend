@@ -1,4 +1,5 @@
 import jwt from "jsonwebtoken";
+import User from "../models/User.js";
 
 export const auth = (req, res, next) => {
   try {
@@ -24,7 +25,7 @@ export const auth = (req, res, next) => {
   }
 };
 
-export const protectAdmin = (req, res, next) => {
+export const protectAdmin = async (req, res, next) => {
   try {
     if (!req.user) {
       return res.status(401).json({
@@ -33,7 +34,10 @@ export const protectAdmin = (req, res, next) => {
       });
     }
 
-    if (req.user.role !== "admin") {
+    // Token role-a nambaama DB-la irundhu check
+    const dbUser = await User.findById(req.user.id).select("role");
+
+    if (!dbUser || dbUser.role !== "admin") {
       return res.status(403).json({
         success: false,
         message: "Not admin",
@@ -49,7 +53,6 @@ export const protectAdmin = (req, res, next) => {
     });
   }
 };
-
 
 export const adminAuth = (req, res, next) => {
   auth(req, res, () => {
